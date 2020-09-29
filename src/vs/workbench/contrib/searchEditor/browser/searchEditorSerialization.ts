@@ -115,6 +115,7 @@ const contentPatternToSearchConfiguration = (pattern: ITextQuery, includes: stri
 		showIncludesExcludes: !!(includes || excludes || pattern?.userDisabledExcludesAndIgnoreFiles),
 		useIgnores: (pattern?.userDisabledExcludesAndIgnoreFiles === undefined ? true : !pattern.userDisabledExcludesAndIgnoreFiles),
 		contextLines,
+		onlyOpenEditors: !!pattern.onlyOpenEditors,
 	};
 };
 
@@ -131,6 +132,7 @@ export const serializeSearchConfiguration = (config: Partial<SearchConfiguration
 			config.caseSensitive && 'CaseSensitive',
 			config.wholeWord && 'WordMatch',
 			config.regexp && 'RegExp',
+			config.onlyOpenEditors && 'OpenEditors',
 			(config.useIgnores === false) && 'IgnoreExcludeSettings'
 		]).join(' ')}`,
 		config.includes ? `# Including: ${config.includes}` : undefined,
@@ -153,6 +155,7 @@ export const defaultSearchConfig = (): SearchConfiguration => ({
 	wholeWord: false,
 	contextLines: 0,
 	showIncludesExcludes: false,
+	onlyOpenEditors: false,
 });
 
 export const extractSearchQueryFromLines = (lines: string[]): SearchConfiguration => {
@@ -197,6 +200,7 @@ export const extractSearchQueryFromLines = (lines: string[]): SearchConfiguratio
 				query.caseSensitive = value.indexOf('CaseSensitive') !== -1;
 				query.useIgnores = value.indexOf('IgnoreExcludeSettings') === -1;
 				query.wholeWord = value.indexOf('WordMatch') !== -1;
+				query.onlyOpenEditors = value.indexOf('OpenEditors') !== -1;
 			}
 		}
 	}

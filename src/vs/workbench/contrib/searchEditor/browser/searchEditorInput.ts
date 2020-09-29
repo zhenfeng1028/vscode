@@ -39,6 +39,7 @@ export type SearchConfiguration = {
 	regexp: boolean,
 	useIgnores: boolean,
 	showIncludesExcludes: boolean,
+	onlyOpenEditors: boolean,
 };
 
 export const SEARCH_EDITOR_EXT = '.code-search';

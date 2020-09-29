@@ -71,6 +71,8 @@ export interface ICommonQueryProps<U extends UriComponents> {
 	excludePattern?: glob.IExpression;
 	extraFileResources?: U[];
 
+	onlyOpenEditors?: boolean;
+
 	maxResults?: number;
 	usingSearchPaths?: boolean;
 }
@@ -352,6 +354,9 @@ export interface ISearchConfigurationProperties {
 		defaultNumberOfContextLines: number | null,
 		experimental: {}
 	};
+	experimental: {
+		searchInOpenEditors: boolean
+	}
 	sortOrder: SearchSortOrder;
 }
 
