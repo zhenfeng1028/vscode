@@ -8,9 +8,9 @@ import { Event, Emitter } from 'vs/base/common/event';
 import { basename, dirname } from 'vs/base/common/resources';
 import { IDisposable, Disposable, DisposableStore, combinedDisposable, dispose, toDisposable } from 'vs/base/common/lifecycle';
 import { ViewPane, IViewPaneOptions } from 'vs/workbench/browser/parts/views/viewPaneContainer';
-import { append, $, Dimension, asCSSUrl } from 'vs/base/browser/dom';
+import { append, $, Dimension, asCSSUrl, reset } from 'vs/base/browser/dom';
 import { IListVirtualDelegate, IIdentityProvider } from 'vs/base/browser/ui/list/list';
-import { ISCMResourceGroup, ISCMResource, InputValidationType, ISCMRepository, ISCMInput, IInputValidation, ISCMViewService, ISCMViewVisibleRepositoryChangeEvent, ISCMService } from 'vs/workbench/contrib/scm/common/scm';
+import { ISCMResourceGroup, ISCMResource, InputValidationType, ISCMRepository, ISCMInput, IInputValidation, ISCMViewService, ISCMViewVisibleRepositoryChangeEvent, ISCMService, ISCMStatus } from 'vs/workbench/contrib/scm/common/scm';
 import { ResourceLabels, IResourceLabel } from 'vs/workbench/browser/labels';
 import { CountBadge } from 'vs/base/browser/ui/countBadge/countBadge';
 import { IEditorService } from 'vs/workbench/services/editor/common/editorService';
@@ -23,7 +23,7 @@ import { MenuItemAction, IMenuService } from 'vs/platform/actions/common/actions
 import { IAction, IActionViewItem, ActionRunner, Action, RadioGroup, Separator, SubmenuAction, IActionViewItemProvider } from 'vs/base/common/actions';
 import { ActionBar } from 'vs/base/browser/ui/actionbar/actionbar';
 import { IThemeService, registerThemingParticipant, IFileIconTheme } from 'vs/platform/theme/common/themeService';
-import { isSCMResource, isSCMResourceGroup, connectPrimaryMenuToInlineActionBar, isSCMRepository, isSCMInput, collectContextMenuActions, StatusBarAction, StatusBarActionViewItem, getRepositoryVisibilityActions } from './util';
+import { isSCMResource, isSCMResourceGroup, connectPrimaryMenuToInlineActionBar, isSCMRepository, isSCMInput, collectContextMenuActions, StatusBarAction, StatusBarActionViewItem, getRepositoryVisibilityActions, isSCMStatus } from './util';
 import { attachBadgeStyler } from 'vs/platform/theme/common/styler';
 import { WorkbenchCompressibleObjectTree, IOpenEvent } from 'vs/platform/list/browser/listService';
 import { IConfigurationService, ConfigurationTarget, IConfigurationChangeEvent } from 'vs/platform/configuration/common/configuration';
@@ -78,13 +78,119 @@ import { IPosition } from 'vs/editor/common/core/position';
 import { ColorScheme } from 'vs/platform/theme/common/theme';
 import { IUriIdentityService } from 'vs/workbench/services/uriIdentity/common/uriIdentity';
 import { LabelFuzzyScore } from 'vs/base/browser/ui/tree/abstractTree';
+import { Command } from 'vs/editor/common/modes';
+import { ActionViewItem } from 'vs/base/browser/ui/actionbar/actionViewItems';
+import { renderCodicons } from 'vs/base/browser/codicons';
 
-type TreeElement = ISCMRepository | ISCMInput | ISCMResourceGroup | IResourceNode<ISCMResource, ISCMResourceGroup> | ISCMResource;
+type TreeElement = ISCMRepository | ISCMStatus | ISCMInput | ISCMResourceGroup | IResourceNode<ISCMResource, ISCMResourceGroup> | ISCMResource;
 
 interface ISCMLayout {
 	height: number | undefined;
 	width: number | undefined;
 	readonly onDidChange: Event<void>;
+}
+
+export class StatusAction extends Action {
+
+	constructor(
+		private command: Command,
+		private commandService: ICommandService
+	) {
+		super(`statusaction{${command.id}}`, command.title, '', true);
+		this.tooltip = command.tooltip || '';
+	}
+
+	isSpacer(): boolean {
+		return this.command.id === '__spacer__';
+	}
+
+	async run(): Promise<void> {
+		if (this.isSpacer()) {
+			return;
+		}
+
+		return this.commandService.executeCommand(this.command.id, ...(this.command.arguments || []));
+	}
+}
+
+export class StatusActionViewItem extends ActionViewItem {
+
+	constructor(private action: StatusAction) {
+		super(null, action, {});
+	}
+
+	render(container: HTMLElement): void {
+		if (this.action.isSpacer()) {
+			container.classList.add('spacer');
+			return;
+		}
+
+		super.render(container);
+	}
+
+	updateLabel(): void {
+		if (this.options.label && this.label) {
+			reset(this.label, ...renderCodicons(this.getAction().label));
+		}
+	}
+}
+
+interface IStatusTemplate {
+	readonly actionBar: ActionBar;
+	disposable: IDisposable;
+	readonly templateDisposable: IDisposable;
+}
+
+class StatusRenderer implements ICompressibleTreeRenderer<ISCMStatus, FuzzyScore, IStatusTemplate> {
+
+	static readonly TEMPLATE_ID = 'status';
+	readonly templateId = StatusRenderer.TEMPLATE_ID;
+
+	constructor(
+		private actionViewItemProvider: IActionViewItemProvider,
+		@ICommandService private commandService: ICommandService
+	) { }
+
+	renderTemplate(container: HTMLElement): IStatusTemplate {
+		// hack
+		(container.parentElement!.parentElement!.querySelector('.monaco-tl-twistie')! as HTMLElement).classList.add('force-no-twistie');
+
+		const statusElement = append(container, $('.scm-status'));
+		const actionBar = new ActionBar(statusElement, { actionViewItemProvider: this.actionViewItemProvider });
+
+		const disposable = Disposable.None;
+		const templateDisposable = combinedDisposable(actionBar);
+
+		return { actionBar, disposable, templateDisposable };
+	}
+
+	renderElement(element: ITreeNode<ISCMStatus, FuzzyScore>, index: number, templateData: IStatusTemplate, height: number | undefined): void {
+		templateData.disposable.dispose();
+
+		const status = element.element;
+		const disposables = new DisposableStore();
+
+		const onDidChange = () => {
+			const commands = status.commands || [];
+			const actions = commands.map(c => new StatusAction(c, this.commandService));
+
+			templateData.actionBar.clear();
+			templateData.actionBar.push(actions);
+		};
+		disposables.add(status.onDidChange(onDidChange, null));
+		onDidChange();
+
+		templateData.disposable = disposables;
+	}
+
+	renderCompressedElements(node: ITreeNode<ICompressedTreeNode<ISCMStatus>, FuzzyScore>, index: number, templateData: IStatusTemplate, height: number | undefined): void {
+		throw new Error('Should never happen since node is incompressible');
+	}
+
+	disposeTemplate(templateData: IStatusTemplate): void {
+		templateData.disposable.dispose();
+		templateData.templateDisposable.dispose();
+	}
 }
 
 interface InputTemplate {
@@ -520,6 +626,8 @@ class ListDelegate implements IListVirtualDelegate<TreeElement> {
 	getTemplateId(element: TreeElement) {
 		if (isSCMRepository(element)) {
 			return RepositoryRenderer.TEMPLATE_ID;
+		} else if (isSCMStatus(element)) {
+			return StatusRenderer.TEMPLATE_ID;
 		} else if (isSCMInput(element)) {
 			return InputRenderer.TEMPLATE_ID;
 		} else if (ResourceTree.isResourceNode(element) || isSCMResource(element)) {
@@ -559,8 +667,12 @@ export class SCMTreeSorter implements ITreeSorter<TreeElement> {
 			return 0;
 		}
 
-		if (isSCMInput(one)) {
+		if (isSCMStatus(one)) {
 			return -1;
+		} else if (isSCMStatus(other)) {
+			return 1;
+		} else if (isSCMInput(one)) {
+			return isSCMStatus(other) ? 1 : -1;
 		} else if (isSCMInput(other)) {
 			return 1;
 		}
@@ -627,6 +739,8 @@ export class SCMTreeKeyboardNavigationLabelProvider implements ICompressibleKeyb
 			return element.name;
 		} else if (isSCMRepository(element)) {
 			return undefined;
+		} else if (isSCMStatus(element)) {
+			return undefined;
 		} else if (isSCMInput(element)) {
 			return undefined;
 		} else if (isSCMResourceGroup(element)) {
@@ -664,6 +778,9 @@ class SCMResourceIdentityProvider implements IIdentityProvider<TreeElement> {
 		} else if (isSCMRepository(element)) {
 			const provider = element.provider;
 			return `repo:${provider.id}`;
+		} else if (isSCMStatus(element)) {
+			const provider = element.repository.provider;
+			return `status:${provider.id}`;
 		} else if (isSCMInput(element)) {
 			const provider = element.repository.provider;
 			return `input:${provider.id}`;
@@ -691,6 +808,8 @@ export class SCMAccessibilityProvider implements IListAccessibilityProvider<Tree
 			return this.labelService.getUriLabel(element.uri, { relative: true, noPrefix: true }) || element.name;
 		} else if (isSCMRepository(element)) {
 			return element.provider.label;
+		} else if (isSCMStatus(element)) {
+			return localize('status', "Source Control Status");
 		} else if (isSCMInput(element)) {
 			return localize('input', "Source Control Input");
 		} else if (isSCMResourceGroup(element)) {
@@ -960,7 +1079,7 @@ class ViewModel {
 
 	private render(item: IRepositoryItem | IGroupItem): ICompressedTreeElement<TreeElement> {
 		if (isRepositoryItem(item)) {
-			const children: ICompressedTreeElement<TreeElement>[] = [];
+			const children: ICompressedTreeElement<TreeElement>[] = [{ element: item.element.status, incompressible: true, collapsible: false }];
 			const hasSomeChanges = item.groupItems.some(item => item.element.elements.length > 0);
 
 			if (this.items.size === 1 || hasSomeChanges) {
@@ -1662,6 +1781,7 @@ export class SCMViewPane extends ViewPane {
 
 		const renderers: ICompressibleTreeRenderer<any, any, any>[] = [
 			this.instantiationService.createInstance(RepositoryRenderer, actionViewItemProvider),
+			this.instantiationService.createInstance(StatusRenderer, actionViewItemProvider),
 			this.inputRenderer,
 			this.instantiationService.createInstance(ResourceGroupRenderer, actionViewItemProvider),
 			this.instantiationService.createInstance(ResourceRenderer, () => this.viewModel, this.listLabels, actionViewItemProvider, actionRunner)
@@ -1795,6 +1915,8 @@ export class SCMViewPane extends ViewPane {
 	getActionViewItem(action: IAction): IActionViewItem | undefined {
 		if (action instanceof StatusBarAction) {
 			return new StatusBarActionViewItem(action);
+		} else if (action instanceof StatusAction) {
+			return new StatusActionViewItem(action);
 		}
 
 		return super.getActionViewItem(action);
@@ -1823,6 +1945,8 @@ export class SCMViewPane extends ViewPane {
 			const provider = e.element.context.provider;
 			const repository = this.scmService.repositories.find(r => r.provider === provider);
 			repository?.setSelected(true);
+			return;
+		} else if (isSCMStatus(e.element)) {
 			return;
 		} else if (isSCMInput(e.element)) {
 			e.element.repository.setSelected(true); // TODO@joao: remove
@@ -1877,6 +2001,8 @@ export class SCMViewPane extends ViewPane {
 			const menu = menus.repositoryMenu;
 			context = element.provider;
 			[actions, disposable] = collectContextMenuActions(menu);
+		} else if (isSCMStatus(element)) {
+			// noop
 		} else if (isSCMInput(element)) {
 			// noop
 		} else if (isSCMResourceGroup(element)) {

@@ -103,11 +103,18 @@ export interface ISCMInput {
 	showPreviousHistoryValue(): void;
 }
 
+export interface ISCMStatus {
+	readonly repository: ISCMRepository;
+	readonly commands: Command[];
+	readonly onDidChange: Event<void>;
+}
+
 export interface ISCMRepository extends IDisposable {
 	readonly selected: boolean;
 	readonly onDidChangeSelection: Event<boolean>;
 	readonly provider: ISCMProvider;
 	readonly input: ISCMInput;
+	readonly status: ISCMStatus;
 	setSelected(selected: boolean): void;
 }
 

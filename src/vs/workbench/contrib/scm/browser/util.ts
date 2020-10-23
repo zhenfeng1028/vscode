@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { ISCMResource, ISCMRepository, ISCMResourceGroup, ISCMInput, ISCMService, ISCMViewService } from 'vs/workbench/contrib/scm/common/scm';
+import { ISCMResource, ISCMRepository, ISCMResourceGroup, ISCMInput, ISCMService, ISCMViewService, ISCMStatus } from 'vs/workbench/contrib/scm/common/scm';
 import { IMenu } from 'vs/platform/actions/common/actions';
 import { ActionBar } from 'vs/base/browser/ui/actionbar/actionbar';
 import { IDisposable, Disposable, combinedDisposable, toDisposable } from 'vs/base/common/lifecycle';
@@ -20,6 +20,10 @@ import { reset } from 'vs/base/browser/dom';
 
 export function isSCMRepository(element: any): element is ISCMRepository {
 	return !!(element as ISCMRepository).provider && typeof (element as ISCMRepository).setSelected === 'function';
+}
+
+export function isSCMStatus(element: any): element is ISCMStatus {
+	return !!(element as ISCMStatus).onDidChange && Array.isArray((element as ISCMStatus).commands);
 }
 
 export function isSCMInput(element: any): element is ISCMInput {

@@ -5,7 +5,7 @@
 
 import { IDisposable, toDisposable } from 'vs/base/common/lifecycle';
 import { Event, Emitter } from 'vs/base/common/event';
-import { ISCMService, ISCMProvider, ISCMInput, ISCMRepository, IInputValidator } from './scm';
+import { ISCMService, ISCMProvider, ISCMInput, ISCMRepository, IInputValidator, ISCMStatus } from './scm';
 import { ILogService } from 'vs/platform/log/common/log';
 import { IContextKey, IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
 import { IStorageService, StorageScope, WillSaveStateReason } from 'vs/platform/storage/common/storage';
@@ -144,6 +144,15 @@ class SCMRepository implements ISCMRepository {
 	readonly onDidChangeSelection: Event<boolean> = this._onDidChangeSelection.event;
 
 	readonly input: ISCMInput = new SCMInput(this, this.storageService);
+	readonly status: ISCMStatus = {
+		repository: this,
+		commands: [
+			{ id: 'git.checkout', title: '$(git-branch) master*' },
+			{ id: '__spacer__', title: '' },
+			{ id: 'git.checkout', title: '$(sync) Sync $badge(3↓ 1↑)' },
+		],
+		onDidChange: Event.None
+	};
 
 	constructor(
 		public readonly provider: ISCMProvider,

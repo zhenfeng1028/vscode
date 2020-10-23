@@ -188,6 +188,33 @@
 	line-height: 22px;
 }
 
+.scm-view .scm-status {
+	margin-left: 10px;
+}
+
+.scm-view .scm-status,
+.scm-view .scm-status > .monaco-action-bar,
+.scm-view .scm-status > .monaco-action-bar > .actions-container {
+	height: 100%;
+}
+
+.scm-view .scm-status > .monaco-action-bar > .actions-container {
+	display: flex;
+}
+
+.scm-view .scm-status .action-item.spacer {
+	flex: 1;
+}
+
+.scm-view .scm-status .action-label {
+	display: flex;
+	font-size: inherit;
+}
+
+.scm-view .scm-status .action-label > .codicon {
+	margin-right: 0.2em;
+}
+
 .scm-view .scm-input {
 	height: 100%;
 	margin-left: 9px;
