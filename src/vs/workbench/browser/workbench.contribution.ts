@@ -9,6 +9,9 @@ import { IConfigurationRegistry, Extensions as ConfigurationExtensions, Configur
 import { isMacintosh, isWindows, isLinux, isWeb, isNative } from 'vs/base/common/platform';
 import { workbenchConfigurationNodeBase } from 'vs/workbench/common/configuration';
 import { isStandalone } from 'vs/base/browser/browser';
+import { IWorkbenchContributionsRegistry, Extensions as WorkbenchExtensions } from 'vs/workbench/common/contributions';
+import { LifecyclePhase } from 'vs/workbench/services/lifecycle/common/lifecycle';
+import { QuickAccessCommandRegistration } from 'vs/workbench/browser/quickaccess';
 
 // Configuration
 (function registerConfiguration(): void {
@@ -473,4 +476,9 @@ import { isStandalone } from 'vs/base/browser/browser';
 			}
 		}
 	});
+})();
+
+// Workbench Contribution
+(function registerConfiguration(): void {
+	Registry.as<IWorkbenchContributionsRegistry>(WorkbenchExtensions.Workbench).registerWorkbenchContribution(QuickAccessCommandRegistration, LifecyclePhase.Ready);
 })();

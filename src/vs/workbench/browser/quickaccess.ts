@@ -7,6 +7,12 @@ import { ContextKeyExpr, RawContextKey } from 'vs/platform/contextkey/common/con
 import { ICommandHandler } from 'vs/platform/commands/common/commands';
 import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
 import { IQuickInputService } from 'vs/platform/quickinput/common/quickInput';
+import { IWorkbenchContribution } from 'vs/workbench/common/contributions';
+import { Registry } from 'vs/platform/registry/common/platform';
+import { IQuickAccessRegistry, Extensions as QuickAccessExtensions } from 'vs/platform/quickinput/common/quickAccess';
+import { Action2, registerAction2 } from 'vs/platform/actions/common/actions';
+import { ServicesAccessor } from 'vs/platform/instantiation/common/instantiation';
+import { localize } from 'vs/nls';
 
 export const inQuickPickContextKeyValue = 'inQuickOpen';
 export const InQuickPickContextKey = new RawContextKey<boolean>(inQuickPickContextKeyValue, false);
@@ -38,4 +44,31 @@ export function getQuickNavigateHandler(id: string, next?: boolean): ICommandHan
 
 		quickInputService.navigate(!!next, quickNavigate);
 	};
+}
+
+export class QuickAccessCommandRegistration implements IWorkbenchContribution {
+
+	constructor() {
+		const registry = Registry.as<IQuickAccessRegistry>(QuickAccessExtensions.Quickaccess);
+
+		for (const quickaccess of registry.getQuickAccessProviders()) {
+			for (const helpEntry of quickaccess.helpEntries) {
+				const prefix = helpEntry.prefix ?? quickaccess.prefix;
+
+				registerAction2(class OpenQuickAccessAction extends Action2 {
+					constructor() {
+						super({
+							id: `quickAccess.commands.${prefix ?? 'anything'}`,
+							title: prefix ? `${helpEntry.description} (${prefix})` : helpEntry.description,
+							category: localize('quickAccess', "Quick Access"),
+							f1: true
+						});
+					}
+					run(accessor: ServicesAccessor): void {
+						accessor.get(IQuickInputService).quickAccess.show(prefix);
+					}
+				});
+			}
+		}
+	}
 }
