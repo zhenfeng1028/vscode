@@ -59,8 +59,8 @@ export class QuickAccessCommandRegistration implements IWorkbenchContribution {
 					constructor() {
 						super({
 							id: `quickAccess.commands.${prefix ?? 'anything'}`,
-							title: prefix ? `${helpEntry.description} (${prefix})` : helpEntry.description,
-							category: localize('quickAccess', "Quick Access"),
+							title: prefix ? `${helpEntry.description} (${prefix.trim()})` : helpEntry.description,
+							category: localize('quickOpen', "Quick Open"),
 							f1: true
 						});
 					}
