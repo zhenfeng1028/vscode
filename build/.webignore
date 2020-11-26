@@ -12,10 +12,6 @@
 **/example/**
 **/examples/**
 
-jschardet/index.js
-jschardet/src/**
-jschardet/dist/jschardet.js
-
 vscode-textmate/webpack.config.js
 
 xterm/src/**

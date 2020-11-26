@@ -114,9 +114,9 @@
 				'jschardet': `../node_modules/jschardet/dist/jschardet.min.js`,
 			};
 		} else {
-			loaderConfig.amdModulesPattern = /^vs\//;
+			loaderConfig.amdModulesPattern = /(^vs\/)|(^jschardet$)/;
 			loaderConfig.paths = {
-				'jschardet': `${configuration.appRoot}/node_modules/jschardet/dist/jschardet.min.js`
+				'jschardet': `../node_modules/jschardet/dist/jschardet.min.js`
 			};
 		}
 
