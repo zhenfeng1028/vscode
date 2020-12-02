@@ -66,8 +66,8 @@ stages:
   #         - template: win32/product-build-win32.yml
 
   - stage: Linux
-    dependsOn:
-      - Compile
+    # dependsOn:
+    #   - Compile
     condition: and(succeeded(), eq(variables['VSCODE_COMPILE_ONLY'], 'false'))
     pool:
       vmImage: "Ubuntu-16.04"
