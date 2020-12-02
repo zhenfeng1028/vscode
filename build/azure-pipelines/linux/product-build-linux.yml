@@ -28,11 +28,11 @@ steps:
     inputs:
       versionSpec: "1.x"
 
-  # - task: AzureKeyVault@1
-  #   displayName: "Azure Key Vault: Get Secrets"
-  #   inputs:
-  #     azureSubscription: "vscode-builds-subscription"
-  #     KeyVaultName: vscode
+  - task: AzureKeyVault@1
+    displayName: "Azure Key Vault: Get Secrets"
+    inputs:
+      azureSubscription: "vscode-builds-subscription"
+      KeyVaultName: vscode
 
   - script: |
       set -e
