@@ -100,7 +100,6 @@ steps:
   - script: |
       set -e
       node build/azure-pipelines/mixin
-      yarn electron
     displayName: Mix in quality
 
   # - script: |
