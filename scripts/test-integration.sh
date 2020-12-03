@@ -46,6 +46,12 @@ else
 	echo "Running integration tests with '$INTEGRATION_TEST_ELECTRON_PATH' as build."
 fi
 
+if [ -z "$INTEGRATION_TEST_APP_NAME" ]; then
+	after_suite() { }
+else
+	after_suite() { killall $INTEGRATION_TEST_APP_NAME || true }
+fi
+
 echo 'START -----------------------------------'
 free -h
 killall $INTEGRATION_TEST_APP_NAME || true
