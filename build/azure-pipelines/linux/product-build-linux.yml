@@ -138,7 +138,6 @@ steps:
 
       wget https://az764295.vo.msecnd.net/insider/f4187f22026ff6537f2ca8132ad3209fceb5071f/code-insider-x64-1606915690.tar.gz -P $(agent.builddirectory)
       tar -xvzf $(agent.builddirectory)/code-insider-x64-1606915690.tar.gz -C $(agent.builddirectory)
-      sudo apt install -y psmisc
 
       APP_ROOT=$(agent.builddirectory)/VSCode-linux-$(VSCODE_ARCH)
       APP_NAME=$(node -p "require(\"$APP_ROOT/resources/app/product.json\").applicationName")
