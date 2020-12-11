@@ -157,18 +157,26 @@ const tsHygieneFilter = [
 ];
 module.exports.tsHygieneFilter = tsHygieneFilter;
 
-const copyrightHeaderLines = [
-	'/*---------------------------------------------------------------------------------------------',
-	' *  Copyright (c) Microsoft Corporation. All rights reserved.',
-	' *  Licensed under the MIT License. See License.txt in the project root for license information.',
-	' *--------------------------------------------------------------------------------------------*/',
-];
+const copyrightHeaderLinesRegex = new RegExp([
+	'^/\\*-{93}',
+	' \\*  Copyright \\(c\\) Microsoft Corporation\\. All rights reserved\\.',
+	' \\*  Licensed under the MIT License\\. See License\\.txt in the project root for license information\\.',
+	' \\*-{92}\\*/',
+].join('(\\r\\n|\\r|\\n)'), '');
+
+function str(file) {
+	if (!file.__str__) {
+		file.__str__ = file.contents.toString('utf8');
+	}
+
+	return file.__str__;
+}
 
 function hygiene(some) {
 	let errorCount = 0;
 
 	const productJson = es.through(function (file) {
-		const product = JSON.parse(file.contents.toString('utf8'));
+		const product = JSON.parse(str(file));
 
 		if (product.extensionsGallery) {
 			console.error(`product.json: Contains 'extensionsGallery'`);
@@ -178,45 +186,34 @@ function hygiene(some) {
 		this.emit('data', file);
 	});
 
+	const indentationRegex = /^\t* (?!\*)/gm;
 	const indentation = es.through(function (file) {
-		const lines = file.contents.toString('utf8').split(/\r\n|\r|\n/);
-		file.__lines = lines;
+		while (true) {
+			const match = indentationRegex.exec(str(file));
 
-		lines.forEach((line, i) => {
-			if (/^\s*$/.test(line)) {
-				// empty or whitespace lines are OK
-			} else if (/^[\t]*[^\s]/.test(line)) {
-				// good indent
-			} else if (/^[\t]* \*/.test(line)) {
-				// block comment using an extra space
-			} else {
-				console.error(
-					file.relative + '(' + (i + 1) + ',1): Bad whitespace indentation'
-				);
-				errorCount++;
-			}
-		});
-
-		this.emit('data', file);
-	});
-
-	const copyrights = es.through(function (file) {
-		const lines = file.__lines;
-
-		for (let i = 0; i < copyrightHeaderLines.length; i++) {
-			if (lines[i] !== copyrightHeaderLines[i]) {
-				console.error(file.relative + ': Missing or bad copyright statement');
-				errorCount++;
+			if (!match) {
 				break;
 			}
+
+			console.error(`${file.relative}(pos ${match.index}): Bad whitespace indentation`);
+			errorCount++;
 		}
 
 		this.emit('data', file);
 	});
 
-	const formatting = es.map(function (file, cb) {
+	const copyrights = es.through(function (file) {
+		if (!copyrightHeaderLinesRegex.test(str(file))) {
+			console.error(file.relative + ': Missing or bad copyright statement');
+			errorCount++;
+		}
+
+		this.emit('data', file);
+	});
+
+	const tsFormatting = es.map(function (file, cb) {
 		tsfmt
-			.processString(file.path, file.contents.toString('utf8'), {
+			.processString(file.path, str(file), {
 				verify: false,
 				tsfmt: true,
 				// verbose: true,
@@ -264,7 +261,7 @@ function hygiene(some) {
 
 	const productJsonFilter = filter('product.json', { restore: true });
 
-	const result = input
+	return input
 		.pipe(filter((f) => !f.stat.isDirectory()))
 		.pipe(productJsonFilter)
 		.pipe(process.env['BUILD_SOURCEVERSION'] ? es.through() : productJson)
@@ -272,51 +269,33 @@ function hygiene(some) {
 		.pipe(filter(indentationFilter))
 		.pipe(indentation)
 		.pipe(filter(copyrightFilter))
-		.pipe(copyrights);
-
-	const typescript = result.pipe(filter(tsHygieneFilter)).pipe(formatting);
-
-	const javascript = result
-		.pipe(filter(jsHygieneFilter.concat(tsHygieneFilter)))
-		.pipe(
-			gulpeslint({
-				configFile: '.eslintrc.json',
-				rulePaths: ['./build/lib/eslint'],
-			})
-		)
+		.pipe(copyrights)
+		.pipe(filter([...jsHygieneFilter, ...tsHygieneFilter]))
+		.pipe(gulpeslint({ configFile: '.eslintrc.json', rulePaths: ['./build/lib/eslint'] }))
 		.pipe(gulpeslint.formatEach('compact'))
+		.pipe(gulpeslint.results((results) => errorCount += results.warningCount + results.errorCount))
+		.pipe(filter(tsHygieneFilter))
+		.pipe(tsFormatting)
 		.pipe(
-			gulpeslint.results((results) => {
-				errorCount += results.warningCount;
-				errorCount += results.errorCount;
-			})
+			es.through(
+				function (data) {
+					this.emit('data', data);
+				},
+				function () {
+					process.stdout.write('\n');
+					if (errorCount > 0) {
+						this.emit(
+							'error',
+							'Hygiene failed with ' +
+							errorCount +
+							` errors. Check 'build / gulpfile.hygiene.js'.`
+						);
+					} else {
+						this.emit('end');
+					}
+				}
+			)
 		);
-
-	let count = 0;
-	return es.merge(typescript, javascript).pipe(
-		es.through(
-			function (data) {
-				count++;
-				if (process.env['TRAVIS'] && count % 10 === 0) {
-					process.stdout.write('.');
-				}
-				this.emit('data', data);
-			},
-			function () {
-				process.stdout.write('\n');
-				if (errorCount > 0) {
-					this.emit(
-						'error',
-						'Hygiene failed with ' +
-						errorCount +
-						` errors. Check 'build / gulpfile.hygiene.js'.`
-					);
-				} else {
-					this.emit('end');
-				}
-			}
-		)
-	);
 }
 
 module.exports.hygiene = hygiene;
@@ -403,6 +382,16 @@ if (require.main === module) {
 								)
 						)
 						.catch((err) => {
+							console.error();
+							console.error(err);
+							process.exit(1);
+						});
+				} else {
+					hygiene()
+						.on('end', () => {
+							process.exit(0);
+						})
+						.on('error', err => {
 							console.error();
 							console.error(err);
 							process.exit(1);
