@@ -114,7 +114,8 @@ steps:
   - script: |
       set -e
       yarn concurrently --max_old_space_size=4095 --names "client,extensions" "yarn gulp compile-build" "yarn gulp compile-extensions-build"
-      yarn concurrently --max_old_space_size=4095 --names "vscode,reh,web" "yarn gulp minify-vscode" "yarn gulp minify-vscode-reh" "yarn gulp minify-vscode-reh-web"
+      yarn gulp minify-vscode
+      yarn concurrently --max_old_space_size=4095 --names "reh,web" yarn gulp minify-vscode-reh" "yarn gulp minify-vscode-reh-web"
     displayName: Compile
     condition: and(succeeded(), ne(variables['CacheExists-Compilation'], 'true'))
 
