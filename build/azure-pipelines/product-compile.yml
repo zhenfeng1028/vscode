@@ -107,11 +107,16 @@ steps:
 
   - script: |
       set -e
-      yarn gulp hygiene
-      yarn monaco-compile-check
-      yarn valid-layers-check
+      yarn concurrently --names "hygiene,monaco,layers" "yarn hygiene" "yarn monaco-compile-check" "yarn valid-layers-check"
     displayName: Run hygiene, monaco compile & valid layers checks
     condition: and(succeeded(), ne(variables['CacheExists-Compilation'], 'true'), eq(variables['VSCODE_STEP_ON_IT'], 'false'))
+
+  - script: |
+      set -e
+      yarn concurrently --names "client,extensions" "yarn gulp compile-build" "yarn gulp compile-extensions-build"
+      yarn concurrently --names "vscode,reh,web" "yarn gulp minify-vscode" "yarn gulp minify-vscode-reh" "yarn gulp minify-vscode-reh-web"
+    displayName: Compile
+    condition: and(succeeded(), ne(variables['CacheExists-Compilation'], 'true'))
 
   - script: |
       set -
@@ -124,16 +129,6 @@ steps:
       AZURE_WEBVIEW_STORAGE_ACCESS_KEY="$(vscode-webview-storage-key)" \
       ./build/azure-pipelines/common/publish-webview.sh
     displayName: Publish Webview
-    condition: and(succeeded(), ne(variables['CacheExists-Compilation'], 'true'))
-
-  - script: |
-      set -e
-      yarn gulp compile-build
-      yarn gulp compile-extensions-build
-      yarn gulp minify-vscode
-      yarn gulp minify-vscode-reh
-      yarn gulp minify-vscode-reh-web
-    displayName: Compile
     condition: and(succeeded(), ne(variables['CacheExists-Compilation'], 'true'))
 
   - script: |
