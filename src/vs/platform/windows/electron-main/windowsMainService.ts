@@ -6,7 +6,7 @@
 import { statSync, unlink } from 'fs';
 import { basename, normalize, join, posix } from 'vs/base/common/path';
 import { localize } from 'vs/nls';
-import { coalesce, distinct, firstOrDefault } from 'vs/base/common/arrays';
+import { coalesce, distinct, firstOrDefault, coalesceInPlace } from 'vs/base/common/arrays';
 import { IBackupMainService } from 'vs/platform/backup/electron-main/backup';
 import { IEmptyWindowBackupInfo } from 'vs/platform/backup/node/backup';
 import { IEnvironmentMainService } from 'vs/platform/environment/electron-main/environmentMainService';
